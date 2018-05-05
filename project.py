@@ -6,19 +6,15 @@ import ssl
 import json
 import urllib.request as urllib2
 from bs4 import BeautifulSoup
+import requests
 
 arguments = sys.argv[3:]
 filename = sys.argv[1]
 numtweets = int(sys.argv[2])
 
-soup = BeautifulSoup(urllib2.urlopen("https://www.google.com"), "html.parser")
-print(soup.title.string)
-
-print(filename)
-
+print(filename + " contains the tweets with a title attribute")
 keywords = ' '.join(arguments)
-
-print(keywords)
+print(keywords + " are the keywords")
 
 #consumer key, consumer secret, access token, access secret.
 ckey="5QVnDuXPag3EKOrjre2YRZNcm"
@@ -29,17 +25,32 @@ asecret="nAuuwvhPwxbn5gMqJZgXuviMdPpxoeqgSxjmzWFPVEa2S"
 
 class listener(StreamListener):
     counttweets = 0
+    firstit = True
+    arr = []
     def on_data(self, data):
-        # tweet = data.split(',"text":"')[1].split('","source')[0]
-        with open(filename, 'a') as the_file:
+        with open("originalstream.json", 'a') as the_file:
             if self.counttweets < numtweets:
-                # the_file.write('tweet: ' +tweet+'\n')
                 the_file.write(data)
                 self.counttweets+=1
                 print(self.counttweets)
             else:
-                print("hi")
-                sys.exit()
+                with open("originalstream.json", 'r') as the_file:
+                    for line in the_file:
+                        self.arr.append(json.loads(line))
+                    for row in self.arr:
+                        if not row['entities']['urls']:
+                            print("No URLs in tweet")
+                        else:
+                            url = row['entities']['urls'][0]['url']
+                            headers = {'User-Agent':'Mozilla/5.0'}
+                            page = requests.get(url)
+                            title = BeautifulSoup(page.text, "html.parser").title.string
+                            # title = BeautifulSoup(urllib2.urlopen(row['entities']['urls'][0]['url']), "html.parser").title.string
+                            row['title'] = title
+                            print(row['title'])
+                        with open(filename, 'a') as output:
+                            output.write(json.dumps(row) + '\n')
+                    sys.exit()
         return(True)
 
     def on_error(self, status):
